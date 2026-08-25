@@ -1,38 +1,64 @@
-# @dsh-desktop/plugin-global-prompt
+# 🧭 dsh-global-prompt
 
-[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+> 给 DeepSeek Harness 的提示词管理装上图形界面：全局 `AGENTS.md`、各工作区 `AGENTS.md` 可视化编辑，改完即生效，不用再手动翻文件。
 
-A settings plugin for DeepSeek Harness (DSH). It manages the global `$DSH_HOME/AGENTS.md` and per-workspace `AGENTS.md` files, lets you inject an identity line and a persona into conversations, and toggles runtime-context injection. Works in DSH Web and the dsh-desktop Electron shell.
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 
-## Features
+## 这是什么
 
-- **Global instructions** — edit `$DSH_HOME/AGENTS.md` from the settings panel. Changes apply to the next conversation turn, no restart needed.
-- **Project instructions** — per-workspace `AGENTS.md`, resolved server-side from the DSH workspace registry.
-- **Two-way sync** — edit `AGENTS.md` outside the plugin and the panel picks it up; save from the panel and the file is rewritten. Both directions go through a content guard, so there is no write loop.
-- **Identity injection** — optional `harness:identity` section.
-- **Persona injection** — optional `deployment:persona` override; `{{model}}` and `{{cwd}}` placeholders are expanded by DSH at render time.
-- **Runtime context switch** — suppress the DSH runtime-context snapshot when you do not want it.
-- **Result notifications** — desktop shell notifications, browser notifications in plain Web.
+DSH 的指令注入机制（`dsh-agent-instructions`）是**读文件**的：`$DSH_HOME/AGENTS.md` 就是全局提示词，写进去就生效。但没有面板，你得自己去翻安装目录改文件。
 
-## Install
+本插件在设置面板里开了三个 tab，把这件事变成点一点：
 
+| Tab | 干什么 |
+| --- | --- |
+| 全局 | 编辑 `$DSH_HOME/AGENTS.md`，下一条消息就生效，不用重启、不用开新会话 |
+| 项目 | 按工作区管理各自的 `AGENTS.md`，只对那个工作区生效 |
+| 通知 | 任务完成/失败弹系统通知，点一下回到对应会话 |
+
+## 特性
+
+- **双向同步**：插件外直接改 `AGENTS.md`，面板能读到（150ms 内自动回写设置）；面板保存，文件被重写。两个方向都有内容守卫，不会互刷。
+- **不丢数据**：你手动维护过 `AGENTS.md` 的话，插件启动时以磁盘为准回填设置，绝不会被默认空值覆盖；关闭「启用」也不会清空你的文件。
+- **身份注入**：可选在每次对话开头加一句「我是 DeepSeek Harness」。
+- **人设注入**：写一段人设，一直拼在对话里。支持 `{{model}}`、`{{cwd}}` 占位符。
+- **运行时上下文开关**：不需要时抑制 DSH 自带的会话信息快照。
+- **结果通知**：桌面壳用系统通知，纯 Web 用浏览器通知。
+
+## 安装
+
+### 独立安装
+
+```bash
+dsh plugin --profile <你的profile> add @dsh-desktop/plugin-global-prompt
 ```
-dsh plugin add @dsh-desktop/plugin-global-prompt
+
+### 随壳内置
+
+dsh-desktop 安装器已捆绑本插件（默认启用，可在插件管理里关掉）。
+
+> 原理：本插件的 bundle patch 会重新启用 `dsh-agent-instructions`（web-app bundle 默认禁用它），面板里写的 AGENTS.md 由官方机制注入——所见即所注入。
+
+## 开发
+
+纯 ESM，无构建步骤。结构：
+
+- `index.js` — 服务端：settings 注册、AGENTS.md 双向同步（目录监听 + 防抖）、两个 HTTP API、身份/人设注入、运行时上下文抑制
+- `client.js` — 设置面板 UI（全局/项目/通知三 tab）
+- `lib/core.js` — 校验与工具函数（persona ≤ 20000 字符、指令 ≤ 1MiB）
+- `test/global-prompt-sync.mjs` — 双向同步防环自测（mock dsh-settings 语义）
+
+跑测试：
+
+```bash
+node test/global-prompt-sync.mjs
 ```
 
-Or bundled inside the dsh-desktop installer (enabled by default, toggleable in plugin management).
+## 兼容性
 
-The bundle patch re-enables `dsh-agent-instructions`, which the web-app bundle disables by default. The plugin-managed `AGENTS.md` files are injected by that mechanism.
-
-## Development
-
-The plugin is plain ESM with no build step. `index.js` is the server side, `client.js` the settings UI, `lib/core.js` holds validation helpers.
-
-Run the test script against a live DSH web service:
-
-```
-node _tmp/test-global-prompt-sync.mjs
-```
+- 官方 dsh `>= 0.1.1-rc.1`（npm latest 为 0.1.1-rc.2）
+- Node >= 20
+- DSH Web 与 dsh-desktop Electron 壳均可
 
 ## License
 

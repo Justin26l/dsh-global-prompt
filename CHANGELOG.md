@@ -1,19 +1,19 @@
-# Changelog
+# 更新日志
 
-All notable changes to this project are documented in this file.
+本项目所有值得记录的变更都会写在这里。
 
 ## [0.1.2] - 2026-08-25
 
-### Added
-- Two-way sync between `AGENTS.md` and the settings panel. Editing the file outside the plugin updates the panel; saving from the panel rewrites the file. A content guard prevents write loops.
+### 新增
+- `AGENTS.md` 与设置面板**双向同步**：插件外改文件，面板能读到；面板保存，文件被重写。两个方向都有内容守卫，不会互相触发写入循环。
 
-### Fixed
-- Enabled=false no longer wipes a user-maintained `AGENTS.md`; the disabled state is handled by the prompt assembly filter instead.
-- On startup, an existing `AGENTS.md` is read back into settings instead of being overwritten by the default empty value.
-- File watcher now ignores the plugin's own writes, so a UI save does not echo back into settings.
-- Watch events with a lower-case or `null` filename are handled (Windows rename events).
-- Oversized `AGENTS.md` files are not written back into settings (matches the 1 MiB PUT validation).
+### 修复
+- 关闭「启用」不再清空你手动维护过的 `AGENTS.md`；禁用状态改由提示词组装层过滤承担。
+- 启动时若磁盘上已有 `AGENTS.md`，以磁盘内容为准回填设置，不会被默认空值覆盖。
+- 文件监听忽略插件自身的写入，UI 保存不会回写回设置。
+- 兼容 Windows 上小写或 `null` 文件名的事件（rename 原子写）。
+- 超过 1MiB 的 `AGENTS.md` 不回写进设置（与 PUT 校验一致）。
 
 ## [0.1.1] - 2026-08-21
 
-- Initial standalone release: global and project `AGENTS.md` editors, identity/persona injection, runtime-context suppression, result notifications, `agent-instructions` re-enabled via bundle patch.
+- 独立发布：全局/项目 `AGENTS.md` 编辑器、身份与人设注入、运行时上下文抑制、结果通知、通过 bundle patch 重新启用 `agent-instructions`。
