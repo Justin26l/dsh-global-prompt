@@ -1,4 +1,4 @@
-window.__ModuleLoader__.load({ id: '@dsh-desktop/plugin-global-prompt', factory: (require) => {
+window.__ModuleLoader__.load({ id: 'dsh-global-prompt', factory: (require) => {
   const module = { exports: {} };
   const React = require('react');
   const NS = 'desktop.globalPrompt';
