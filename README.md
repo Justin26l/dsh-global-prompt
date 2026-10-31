@@ -30,7 +30,7 @@ DSH 的指令注入机制（`dsh-agent-instructions`）是**读文件**的：`$D
 ### 独立安装
 
 ```bash
-dsh plugin --profile <你的profile> add dsh-global-prompt
+dsh plugin --profile <你的profile> add @justin26l/dsh-global-prompt
 ```
 
 ### 随壳内置

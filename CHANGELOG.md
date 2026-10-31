@@ -14,6 +14,7 @@
 ### 说明
 - 配置存储位置从 DSH settings 层改为 `$DSH_HOME/global-prompt.json`，功能等价。
 - 首次启动仍以磁盘上的 `AGENTS.md` 为准回填配置，不会覆盖用户已有内容。
+- 本版本以 scoped 包名 `@justin26l/dsh-global-prompt` 发布（npm 上的 `dsh-global-prompt` 仍归原作者维护）。
 
 ## [0.1.2] - 2026-08-25
 
