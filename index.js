@@ -1,12 +1,10 @@
 import z from '@deepseek-ai/schemastery';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths';
-import { watch } from 'node:fs';
+import { readFileSync, watch } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { effectiveAgentsText, registeredWorkspacePath, validatePromptConfig, validateProjectText } from './lib/core.js';
 
-const NS = settingsNamespace('desktop-global-prompt');
 const Config = z.object({
   enabled: z.boolean().default(true), globalPrompt: z.string().default(''),
   includeHarnessIdentity: z.boolean().default(false), personaEnabled: z.boolean().default(false),
@@ -27,11 +25,33 @@ const pickPromptKeys = (input) => {
 };
 
 export function apply(ctx) {
-  ctx.inject(['settings', 'webServer', 'workspaceRegistry', 'systemPrompt'], (sctx) => {
-    const scope = sctx.settings.register(NS, Config);
+  // dsh 0.2.x: ctx.settings 由 SettingsProvider 改为 SettingsForms,不再提供
+  // register(ns, schema) 命名空间;插件改为自持久化到 $DSH_HOME/global-prompt.json。
+  ctx.inject(['webServer', 'workspaceRegistry', 'systemPrompt'], (sctx) => {
     const agentsPath = join(resolveDshHome(), 'AGENTS.md');
+    const configPath = join(resolveDshHome(), 'global-prompt.json');
+
+    // ---- 等价替代旧 settings scope 的最小实现:get / update / watch ----
+    let state = Config({});
+    try { state = Config({ ...state, ...JSON.parse(readFileSync(configPath, 'utf8')) }); }
+    catch (e) { if (e?.code !== 'ENOENT') ctx.logger.warn('desktop-global-prompt: read config failed: %o', e); }
+    const watchers = new Set();
+    const scope = {
+      get: () => state,
+      update: async (patch) => {
+        state = Config({ ...state, ...patch });
+        await atomicWrite(configPath, JSON.stringify(state, null, 2));
+        for (const cb of watchers) {
+          try { await cb(state); } catch (e) { ctx.logger.warn('desktop-global-prompt: watcher failed: %o', e); }
+        }
+      },
+      watch: (cb) => { watchers.add(cb); return () => watchers.delete(cb); },
+    };
+    // ----------------------------------------------------------------
+
+    let lastSyncedText = null;
     // 内容守卫:与磁盘当前文本相同时跳过写入。既省一次 rename/fs 事件,
-    // 也让「外部改文件 → 回写 settings → watch 回调」方向不再写盘,防死循环。
+    // 也让「外部改文件 → 回写配置 → watch 回调」方向不再写盘,防死循环。
     // enabled=false 时跳过写盘:禁用语义由 system-prompt/assemble 过滤承担,
     // 不覆盖用户手动维护的磁盘内容(否则取消启用会静默清空用户文件)。
     const syncAgents = async (config) => {
@@ -43,7 +63,7 @@ export function apply(ctx) {
       lastSyncedText = next;
     };
     // 启动 reconcile:磁盘优先,防止默认空配置覆盖用户手动维护的 AGENTS.md。
-    // 磁盘有内容且与 settings 不同 → 回填 settings(磁盘是用户事实源),不写盘。
+    // 磁盘有内容且与配置不同 → 回填配置(磁盘是用户事实源),不写盘。
     const reconcileOnStart = async () => {
       const config = scope.get();
       if (config.enabled === false) return;
@@ -56,14 +76,12 @@ export function apply(ctx) {
         await scope.update({ globalPrompt: disk });
       }
     };
-    // 文件 → settings 方向:监听 $DSH_HOME 目录(AGENTS.md 是 tmp+rename 原子替换,
-    // 必须监听目录并按文件名过滤,直接监听文件会漏事件)。事件防抖 150ms,
-    // 对齐官方 dsh-settings-file 的 debounce 思想;回调只回写 globalPrompt。
+    // 文件 → 配置方向:监听 $DSH_HOME 目录(AGENTS.md 是 tmp+rename 原子替换,
+    // 必须监听目录并按文件名过滤,直接监听文件会漏事件)。事件防抖 150ms。
     // 边界:enabled=false 时文件本就被插件清空,外部编辑无注入意义,忽略不回写;
     // 超限文本(>1MiB)也不回写,与 PUT 路径的 validatePromptConfig 校验保持一致。
     // 自写守卫:lastSyncedText 记录插件上次写入的文本,回写时跳过「自己写的」,
     // 避免 UI 保存 → 写盘 → watch 事件 → 回写 的环。
-    let lastSyncedText = null;
     const watchAgentsFile = (scope) => {
       let timer = null;
       let closed = false;
@@ -111,8 +129,8 @@ export function apply(ctx) {
     const disposeWatch = watchAgentsFile(scope);
     sctx.effect(() => {
       applySuppression(scope.get());
-      const watcher = scope.watch((next) => { applySuppression(next); return syncAgents(next); });
-      return () => { watcher(); if (suppressDisposer) { suppressDisposer(); suppressDisposer = null; } disposeWatch(); };
+      const unwatch = scope.watch((next) => { applySuppression(next); return syncAgents(next); });
+      return () => { unwatch(); if (suppressDisposer) { suppressDisposer(); suppressDisposer = null; } disposeWatch(); };
     }, 'desktop-global-prompt: sync AGENTS.md');
     sctx.on('system-prompt/assemble', async (assembly, _context, next) => {
       const out = await next(); const c = scope.get(); if (!c.enabled) return out;

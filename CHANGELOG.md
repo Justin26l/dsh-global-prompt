@@ -2,6 +2,19 @@
 
 本项目所有值得记录的变更都会写在这里。
 
+## [0.2.0] - 2026-10-31
+
+### 破坏性变更
+- 适配 dsh `0.2.x`。`@deepseek-ai/dsh-settings` 在 0.2 中移除了 `settingsNamespace` 导出，且 `ctx.settings` 由 `SettingsProvider` 改为 `SettingsForms`，不再提供 `register(ns, schema)`。插件不再注册 settings 命名空间，改为自持久化到 `$DSH_HOME/global-prompt.json`。
+- 不再兼容 dsh `0.1.x`；`engines.dsh` 收紧为 `>=0.2.0-rc.1 <0.3.0-0`。
+
+### 修复
+- 修复在 dsh `0.2.0-rc.2` / `0.2.1-rc.2` 上启动时报 `does not provide an export named 'settingsNamespace'`、导致插件整体无法加载的问题。
+
+### 说明
+- 配置存储位置从 DSH settings 层改为 `$DSH_HOME/global-prompt.json`，功能等价。
+- 首次启动仍以磁盘上的 `AGENTS.md` 为准回填配置，不会覆盖用户已有内容。
+
 ## [0.1.2] - 2026-08-25
 
 ### 新增

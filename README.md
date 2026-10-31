@@ -43,7 +43,7 @@ dsh-desktop 安装器已捆绑本插件（默认启用，可在插件管理里�
 
 纯 ESM，无构建步骤。结构：
 
-- `index.js` — 服务端：settings 注册、AGENTS.md 双向同步（目录监听 + 防抖）、两个 HTTP API、身份/人设注入、运行时上下文抑制
+- `index.js` — 服务端：本地配置持久化（`global-prompt.json`）、AGENTS.md 双向同步（目录监听 + 防抖）、两个 HTTP API、身份/人设注入、运行时上下文抑制
 - `client.js` — 设置面板 UI（全局/项目/通知三 tab）
 - `lib/core.js` — 校验与工具函数（persona ≤ 20000 字符、指令 ≤ 1MiB）
 - `test/global-prompt-sync.mjs` — 双向同步防环自测（mock dsh-settings 语义）
@@ -56,9 +56,20 @@ node test/global-prompt-sync.mjs
 
 ## 兼容性
 
-- 官方 dsh `>= 0.1.1-rc.1`（npm latest 为 0.1.1-rc.2）
+- 官方 dsh `>= 0.2.0-rc.1 < 0.3.0-0`（已在 `0.2.0-rc.2` / `0.2.1-rc.2` 验证）
+- 不再兼容 dsh `0.1.x`（0.1.x 请使用 `0.1.2`）
 - Node >= 20
 - DSH Web 与 dsh-desktop Electron 壳均可
+
+## 配置存储
+
+从 `0.2.0` 起，插件不再依赖 dsh 的 settings 命名空间，配置持久化在：
+
+```
+$DSH_HOME/global-prompt.json
+```
+
+`$DSH_HOME/AGENTS.md` 仍是注入的权威来源；首次启动会以磁盘文件为准回填配置。
 
 ## License
 
