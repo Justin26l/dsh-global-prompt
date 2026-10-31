@@ -2,6 +2,12 @@
 
 本项目所有值得记录的变更都会写在这里。
 
+## [0.2.1] - 2026-10-31
+
+### 修复
+- 设置面板卡在「正在读取设置…」。dsh 0.2.x 的 `connection` 句柄不再有 `.api` 属性，原代码 `ctx.get('connection').api.workspace.list()` 抛错，被 catch 后面板一直停在 loading。
+- 工作区列表改读 `ctx.get('workspaces').list.getSnapshot().items`，并单独兜底：工作区读取失败不再影响配置面板加载。
+
 ## [0.2.0] - 2026-10-31
 
 ### 破坏性变更

@@ -10,7 +10,6 @@ window.__ModuleLoader__.load({ id: '@justin26l/dsh-global-prompt', factory: (req
   if (!document.querySelector('style[data-plugin-css="ddp"]')) { const style=document.createElement('style'); style.dataset.pluginCss='ddp'; style.textContent=css; document.head.appendChild(style); }
 
   function apply(ctx) {
-    const api = ctx.get('connection').api;
     ctx.effect(() => ctx.locale.register(NS, dictionaries), 'desktop-global-prompt: locale');
     const t = ctx.locale.bind(NS);
     function Page() {
@@ -22,13 +21,17 @@ window.__ModuleLoader__.load({ id: '@justin26l/dsh-global-prompt', factory: (req
       React.useEffect(() => ctx.locale.subscribe(rerender), []);
       // 重读配置与工作区列表:挂载时调用一次,刷新按钮也走这里。失败置 null 显示 loading 态。
       const load = React.useCallback(async () => {
+        // dsh 0.2.x: connection 句柄不再有 .api。工作区列表改读 ctx.workspaces 快照。
+        // 工作区读取单独兜底,失败不影响配置面板本身。
+        let rows = [];
         try {
-          const [globalRes, listRes] = await Promise.all([
-            fetch('/api/desktop-global-prompt'),
-            api.workspace.list({}),
-          ]);
+          const ws = ctx.get('workspaces');
+          rows = ws?.list?.getSnapshot?.().items ?? [];
+        } catch { rows = []; }
+        try {
+          const globalRes = await fetch('/api/desktop-global-prompt');
+          if (!globalRes.ok) throw new Error(`http ${globalRes.status}`);
           setState(await globalRes.json());
-          const rows = listRes.result?.value?.items || [];
           setProject((p) => ({ ...p, workspaces:rows, workspaceId:p.workspaceId || rows[0]?.workspaceId || '' }));
         } catch { setState(null); }
       }, []);
@@ -58,7 +61,7 @@ window.__ModuleLoader__.load({ id: '@justin26l/dsh-global-prompt', factory: (req
       else if (tab === 'project') content=React.createElement(React.Fragment,null,
         React.createElement('label',{className:'ddp-field'},t('projectDir'),
           React.createElement('select',{value:project.workspaceId,onChange:(e)=>setProject({...project,workspaceId:e.target.value})},
-            ...project.workspaces.map((w)=>React.createElement('option',{key:w.workspaceId,value:w.workspaceId},w.title||w.path))),
+            ...project.workspaces.map((w)=>React.createElement('option',{key:w.workspaceId,value:w.workspaceId},w.title||w.path||w.workspaceId))),
           React.createElement('span',{className:'ddp-muted'},t('projectHint'))),
         React.createElement('button',{className:'ddp-btn',onClick:projectLoad,disabled:!project.workspaceId},t('read')),
         React.createElement('label',{className:'ddp-field'},'AGENTS.md',
@@ -74,6 +77,6 @@ window.__ModuleLoader__.load({ id: '@justin26l/dsh-global-prompt', factory: (req
     ctx.slots.inject('settings.section',()=>ctx.slots.register({name:'settings.section',id:'desktop-global-prompt',order:8,label:()=>t('nav')},Page));
     if(!window.dshShell&&globalThis.Notification){let previous=new Map();const seed=ctx.sessions.list.getSnapshot();for(const id of seed.ids)previous.set(id,seed.byId[id]?.running===true);ctx.effect(()=>ctx.sessions.list.subscribe(async()=>{const snapshot=ctx.sessions.list.getSnapshot();for(const id of snapshot.ids){const row=snapshot.byId[id];const was=previous.get(id)===true;previous.set(id,row?.running===true);if(!was||row?.running!==false)continue;try{const config=await fetch('/api/desktop-global-prompt').then(r=>r.json());if(!config.enabled||!config.notifyResult||Notification.permission!=='granted')continue;const n=new Notification('DeepSeek Harness',{body:row.displayTitle||t('resultNotify')});n.onclick=()=>{window.focus();ctx.sessions.open(id);n.close()}}catch{}}}),'desktop-global-prompt: browser notifications')}
   }
-  module.exports={apply,inject:['slots','locale','sessions','connection']};
+  module.exports={apply,inject:['slots','locale','sessions','workspaces']};
   return module.exports;
 }});
